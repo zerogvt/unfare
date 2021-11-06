@@ -48,13 +48,18 @@ func NewPoint(line string) *Point {
 	return p
 }
 
-func worker(wg *sync.WaitGroup, drive []string) {
+func worker(wg *sync.WaitGroup, drive []string, res chan string) {
+	// inform waitgroup when we're done
 	defer wg.Done()
 	var prev_p *Point = nil
 	daily_rate := 0.74
 	nightly_rate := 1.30
 	idle_rate_per_sec := 11.9 / 3600
 	fare := 0.0
+
+	// trace the drive point to point
+	// weed out outlier points
+	// calc fare point to point
 	for _, line := range drive {
 		p := NewPoint(line)
 		if p == nil {
@@ -83,13 +88,51 @@ func worker(wg *sync.WaitGroup, drive []string) {
 		}
 		prev_p = p
 	}
-	fare += 1.3 //flag amount
-	fmt.Println(prev_p.Id_ride, fare)
+	// add in flag amount
+	fare += 1.3
+	fare = math.Round(fare*100) / 100
+	// sent our result to the merger goroutine
+	res <- fmt.Sprint(prev_p.Id_ride, ", ", fare)
+}
+
+// waits to hear results over channel res untill something is sent over channel done
+// appends each result line to the output file in path
+// informs its waitgroup when done
+func merge(wg *sync.WaitGroup, res chan string, done chan string, path string) {
+	defer wg.Done()
+	file, err := os.Create(path)
+	if err != nil {
+		fmt.Println("Cannot create file ", path)
+		return
+	}
+	defer file.Close()
+	w := bufio.NewWriter(file)
+	for {
+		select {
+		case r := <-res:
+			fmt.Println(r)
+			fmt.Fprintln(w, r)
+		case <-done:
+			w.Flush()
+			return
+		}
+	}
 }
 
 func main() {
-	var wg sync.WaitGroup
-	file, err := os.Open("paths.csv")
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) != 2 {
+		fmt.Println("Usage: unfare [input_data_file] [output_file]")
+		return
+	}
+	infile := argsWithoutProg[0]
+	outfile := argsWithoutProg[1]
+
+	var worker_wg sync.WaitGroup
+	var merger_wg sync.WaitGroup
+	res := make(chan string)
+	done := make(chan string)
+	file, err := os.Open(infile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +141,14 @@ func main() {
 	scanner := bufio.NewScanner(file)
 	curr_num := 1
 	curr_drive := []string{}
-	//read line by line
+
+	// start the results merge goroutine
+	go merge(&merger_wg, res, done, outfile)
+	merger_wg.Add(1)
+
+	// start reading in input data
+	// When we complete a ride start a worker goroutine
+	// to weed out outlier points and calculate fare
 	for scanner.Scan() {
 		line := scanner.Text()
 		tokens := strings.Split(line, ",")
@@ -109,19 +159,24 @@ func main() {
 		if num == curr_num {
 			curr_drive = append(curr_drive, line)
 		} else {
-			wg.Add(1)
-			go worker(&wg, curr_drive)
+			// a complete drive was read in. Start a worker on it
+			worker_wg.Add(1)
+			go worker(&worker_wg, curr_drive, res)
 			curr_num = num
 			curr_drive = nil
 			curr_drive = append(curr_drive, line)
 		}
 	}
 	//don't forget the last drive
-	wg.Add(1)
-	go worker(&wg, curr_drive)
+	worker_wg.Add(1)
+	go worker(&worker_wg, curr_drive, res)
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	wg.Wait()
+	// wait all the workers to finish
+	worker_wg.Wait()
+	// signal to merger that all workers are done
+	done <- "done"
+	merger_wg.Wait()
 }
