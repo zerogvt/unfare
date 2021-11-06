@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // TestHelloName calls greetings.Hello with a name, checking
@@ -130,5 +131,23 @@ func TestMerger(t *testing.T) {
 	have := strings.TrimSpace(string(haveb))
 	if string(have) != want {
 		t.Fatalf("Wanted '%s' but got '%s'", want, have)
+	}
+}
+
+func TestDriveWorkers(t *testing.T) {
+	path := "resources/paths.csv"
+	var wg sync.WaitGroup
+	res := make(chan string)
+	driveWorkers(path, &wg, res)
+	have := 0
+	want := 9
+	select {
+	case <-res:
+		have += 1
+		if have == want {
+			break
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatalf("Time out. Wanted %d, only got %d", want, have)
 	}
 }
