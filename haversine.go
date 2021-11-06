@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	earthRaidusKm = 6371 // radius of the earth in kilometers.
+	earthRadiusKm = 6371 // radius of the earth in kilometers.
 )
 
 // Coord represents a geographic coordinate.
@@ -36,7 +36,7 @@ func Distance(p, q Coordinates) (km float64) {
 
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
-	km = c * earthRaidusKm
+	km = c * earthRadiusKm
 
 	return km
 }
