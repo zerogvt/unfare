@@ -1,11 +1,6 @@
 # About
 Take home test for a dev role in a European ride-hailing company.
 
-Beware this was a FAIL due to not following SOLID, dependency injection and other uncle Bob rituals and some Go-community conventions about project structure.
-From my side this made me finally understand that the way Go-community interprets and practices Go won't ever be close to the intentions I initially saw in the language itself. In other words Go is not for me. After all if I wanted to get all the traditional OO shenaningans I'd probably stick with a language that supports it easily (e.g. java) and not go with a language where you'll have to shoehorn them in... 
-
-Anyway. Better to have a bad date than a bad marriage. FWIW though this took the better part of a nice Sat morning so it deserves it's place here.
-
 # unfare
 Calculation of fare estimates based on geographic time series data describing drives.
 
